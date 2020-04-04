@@ -1,9 +1,6 @@
 package pgmig
 
 import (
-	"log"
-
-	"github.com/go-pg/migrations/v7"
 	"github.com/go-pg/pg/v9"
 )
 
@@ -14,64 +11,33 @@ type Migrator struct {
 }
 
 // New initializes a Migrator
-func New(dirPath string) Migrator {
-	return Migrator{dirPath: dirPath}
+func New(db *pg.DB, dirPath string) Migrator {
+	return Migrator{db: db, dirPath: dirPath}
 }
 
-// Run accepts a command and runs the migrations.Collection,
+// Create accepts a name and creates up and down migration files.
+func (m Migrator) Create(name string) error {
+	return create(m.dirPath, name)
+}
+
+// Run accepts a command and runs the migrations Collection,
 // defined through the migration SQL files in the queries dir.
-// Commands: up, down, version, set_version [version]
-// func Run(db *pg.DB, migrationCmd string) error {
-// 	collection := migrations.NewCollection(buildMigrations()...)
-// 	collection = collection.DisableSQLAutodiscover(true)
-
-// 	oldVersion, newVersion, err := collection.Run(db, migrationCmd)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if newVersion != oldVersion {
-// 		log.Printf("migrated from version %d to %d\n", oldVersion, newVersion)
-// 	} else {
-// 		log.Printf("version is %d\n", oldVersion)
-// 	}
-
-// 	return nil
-// }
-
-func (m Migrator) buildMigrations() []*migrations.Migration {
-	queries, err := m.loadMigrationQueries()
-	if err != nil {
-		panic(err)
-	}
-
-	res := []*migrations.Migration{}
-
-	for _, query := range queries {
-		res = append(res, &migrations.Migration{
-			Version: query.Version,
-			UpTx:    true,
-			Up:      upMigration(query.Up, query.Version),
-			DownTx:  true,
-			Down:    downMigration(query.Down, query.Version),
-		})
-	}
-
-	return res
+// Commands: init, up, down, version, set_version [version]
+func (m Migrator) Run(migrationCmd string) error {
+	return run(m.db, m.dirPath, migrationCmd)
 }
 
-func upMigration(query string, version int64) func(db migrations.DB) error {
-	return func(db migrations.DB) error {
-		log.Println("running migration", version)
-		_, err := db.Exec(query)
-		return err
-	}
-
+// Init creates version info table in the database
+func (m Migrator) Init() error {
+	return m.Run("init")
 }
 
-func downMigration(query string, version int64) func(db migrations.DB) error {
-	return func(db migrations.DB) error {
-		log.Println("rolling back migration", version)
-		_, err := db.Exec(query)
-		return err
-	}
+// Migrate runs all new migrations
+func (m Migrator) Migrate() error {
+	return m.Run("up")
+}
+
+// Rollback undoes the latest migration
+func (m Migrator) Rollback() error {
+	return m.Run("down")
 }

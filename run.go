@@ -3,11 +3,15 @@ package pgmig
 import (
 	"bytes"
 	"fmt"
-	"github.com/markbates/pkger"
+	"log"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
+
+	"github.com/go-pg/migrations/v7"
+	"github.com/go-pg/pg/v9"
+	"github.com/markbates/pkger"
 
 	"github.com/jacobmoe/pgmig/errors"
 )
@@ -20,25 +24,81 @@ const (
 	indexDirection       = 3
 )
 
-// MigrationQuery is an up and down migration with a version num
-type MigrationQuery struct {
+// migrationQuery is an up and down migration with a version num
+type migrationQuery struct {
 	Up      string
 	Down    string
 	Version int64
 }
 
-// loadMigrationQueries loads migration queries from the migrations directory
-// that match migrationNamePattern.
-// Results are ordered by MigrationQuery version
-func (m Migrator) loadMigrationQueries() ([]MigrationQuery, error) {
+func run(db *pg.DB, dirPath, migrationCmd string) error {
+	pgMigrations := buildMigrations(dirPath)
+	collection := migrations.NewCollection(pgMigrations...)
+	collection = collection.DisableSQLAutodiscover(true)
+
+	oldVersion, newVersion, err := collection.Run(db, migrationCmd)
+	if err != nil {
+		return err
+	}
+	if newVersion != oldVersion {
+		log.Printf("migrated from version %d to %d\n", oldVersion, newVersion)
+	} else {
+		log.Printf("version is %d\n", oldVersion)
+	}
+
+	return nil
+}
+
+func buildMigrations(dirPath string) []*migrations.Migration {
+	queries, err := load(dirPath)
+	if err != nil {
+		panic(err)
+	}
+
+	res := []*migrations.Migration{}
+
+	for _, query := range queries {
+		res = append(res, &migrations.Migration{
+			Version: query.Version,
+			UpTx:    true,
+			Up:      upMigration(query.Up, query.Version),
+			DownTx:  true,
+			Down:    downMigration(query.Down, query.Version),
+		})
+	}
+
+	return res
+}
+
+func upMigration(query string, version int64) func(db migrations.DB) error {
+	return func(db migrations.DB) error {
+		log.Println("running migration", version)
+		_, err := db.Exec(query)
+		return err
+	}
+
+}
+
+func downMigration(query string, version int64) func(db migrations.DB) error {
+	return func(db migrations.DB) error {
+		log.Println("rolling back migration", version)
+		_, err := db.Exec(query)
+		return err
+	}
+}
+
+// load loads migration queries from the migrations directory
+// that match migrationNamePattern, using pkger.
+// Results are ordered by migrationQuery version
+func load(dirPath string) ([]migrationQuery, error) {
 	queryNames := make([]string, 0)
 	queryPaths := make(map[string]string)
 
-	res := make([]MigrationQuery, 0)
+	res := make([]migrationQuery, 0)
 
 	queryNameReg := regexp.MustCompile(migrationNamePattern)
 
-	err := pkger.Walk(m.dirPath, func(path string, info os.FileInfo, err error) error {
+	err := pkger.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -136,7 +196,7 @@ func (m Migrator) loadMigrationQueries() ([]MigrationQuery, error) {
 			)
 		}
 
-		res = append(res, MigrationQuery{
+		res = append(res, migrationQuery{
 			Version: version,
 			Up:      string(upMigrationQuery),
 			Down:    string(downMigrationQuery),
