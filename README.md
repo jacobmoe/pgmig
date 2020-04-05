@@ -2,11 +2,9 @@
 
 **Migration management library for [go-pg](https://github.com/go-pg/pg) using [pkger](https://github.com/markbates/pkger)**
 
-Simple interface for creating and running Postgres schema migrations. Generated migrations are up and down SQL files, packaged into the project binary using [pkger](https://github.com/markbates/pkger). Put the migration files directory wherever you want in the project.
+Simple interface for creating and running Postgres schema migrations. Generated migrations are up and down SQL files, packaged into the project binary using pkger. Put the migration files directory wherever you want in the project.
 
 ## Dependencies
-
-- [pkger](https://github.com/markbates/pkger)
 
 ```bash
 go get github.com/markbates/pkger/cmd/pkger
@@ -51,7 +49,7 @@ func main() {
 	mig.Rollback()
 }
 
-// this function never need to be called. used for pkger static analysis.
+// this function never needs to be called. used for pkger static analysis.
 func pkgerinclude() {
 	// pkger uses static analysis to determine what to include
 	// in the packaged file, while pgmig builds migrations
