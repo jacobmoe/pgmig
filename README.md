@@ -1,8 +1,8 @@
 # pgmig
 
-**Migration management library for [go-pg](https://github.com/go-pg/pg) using [pkger](https://github.com/markbates/pkger)**
+**Migration management library using [go-pg](https://github.com/go-pg/pg) and [pkger](https://github.com/markbates/pkger)**
 
-Simple interface for creating and running Postgres schema migrations. Generated migrations are up and down SQL files, packaged into the project binary using pkger. Put the migration files directory wherever you want in the project.
+Provides a simple interface for creating, running and packaging Postgres schema migrations. Generated migrations are `up` and `down` SQL files, packaged into the project binary using pkger. Put the migration files directory wherever you want in the project.
 
 ## Dependencies
 
@@ -16,7 +16,7 @@ go get github.com/markbates/pkger/cmd/pkger
 package main
 
 import (
-	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/v9"
 	"github.com/markbates/pkger"
 
 	"github.com/jacobmoe/pgmig"
@@ -24,10 +24,10 @@ import (
 
 func main() {
 	db := pg.Connect(&pg.Options{
-		Addr:     addr,
-		User:     user,
-		Password: password,
-		Database: database,
+		Addr:     "localhost:5432",
+		User:     "dbuser",
+		Password: "dbpassword",
+		Database: "dbname",
 	})
 
 	// path to migrations dir is from project root
@@ -35,18 +35,22 @@ func main() {
 
 	// initialize the migrations table in your db
 	// only need to be run this once for a database
-	mig.Init()
+	err := mig.Init()
+	check(err)
 
 	// create new up and down migration files:
 	//  - /path/to/migrations/dir/200405153854_create_users.up.sql
 	//  - /path/to/migrations/dir/200405153854_create_users.down.sql
-	mig.Create("create_users")
+	err = mig.Create("create_users")
+	check(err)
 
 	// run new migrations (after updating the migration files)
-	mig.Migrate()
+	err = mig.Migrate()
+	check(err)
 
 	// rollback most recent migration
-	mig.Rollback()
+	err = mig.Rollback()
+	check(err)
 }
 
 // this function never needs to be called. used for pkger static analysis.
@@ -55,5 +59,11 @@ func pkgerinclude() {
 	// in the packaged file, while pgmig builds migrations
 	// dynamically. so, must explicitly include migrations dir.
 	pkger.Include("/path/to/migrations/dir")
+}
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 ```
