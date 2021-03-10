@@ -14,7 +14,7 @@ go 1.16+
 package main
 
 import (
-    "embed"
+	"embed"
 	"github.com/go-pg/pg/v10"
 	"github.com/jacobmoe/pgmig"
 )
