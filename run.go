@@ -3,15 +3,14 @@ package pgmig
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"log"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
 
-	"github.com/go-pg/migrations/v7"
-	"github.com/go-pg/pg/v9"
-	"github.com/markbates/pkger"
+	"github.com/go-pg/migrations/v8"
+	"github.com/go-pg/pg/v10"
 
 	"github.com/jacobmoe/pgmig/errors"
 )
@@ -31,8 +30,8 @@ type migrationQuery struct {
 	Version int64
 }
 
-func run(db *pg.DB, dirPath, migrationCmd string) error {
-	pgMigrations := buildMigrations(dirPath)
+func run(db *pg.DB, migFS fs.FS, migrationCmd string) error {
+	pgMigrations := buildMigrations(migFS)
 	collection := migrations.NewCollection(pgMigrations...)
 	collection = collection.DisableSQLAutodiscover(true)
 
@@ -49,8 +48,8 @@ func run(db *pg.DB, dirPath, migrationCmd string) error {
 	return nil
 }
 
-func buildMigrations(dirPath string) []*migrations.Migration {
-	queries, err := load(dirPath)
+func buildMigrations(migFS fs.FS) []*migrations.Migration {
+	queries, err := load(migFS)
 	if err != nil {
 		panic(err)
 	}
@@ -87,10 +86,9 @@ func downMigration(query string, version int64) func(db migrations.DB) error {
 	}
 }
 
-// load loads migration queries from the migrations directory
-// that match migrationNamePattern, using pkger.
+// load loads migration queries from the migrations file system that match migrationNamePattern.
 // Results are ordered by migrationQuery version
-func load(dirPath string) ([]migrationQuery, error) {
+func load(migFS fs.FS) ([]migrationQuery, error) {
 	queryNames := make([]string, 0)
 	queryPaths := make(map[string]string)
 
@@ -98,7 +96,7 @@ func load(dirPath string) ([]migrationQuery, error) {
 
 	queryNameReg := regexp.MustCompile(migrationNamePattern)
 
-	err := pkger.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	err := fs.WalkDir(migFS, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -165,25 +163,17 @@ func load(dirPath string) ([]migrationQuery, error) {
 			)
 		}
 
-		upMigrationQuery, err := readFile(queryPaths[upMigrationName])
+		upMigrationQuery, err := readFile(migFS, queryPaths[upMigrationName])
 		if err != nil {
 			return res, errors.NewSQLLoadErr(
-				fmt.Sprintf(
-					"%s %s",
-					upMigrationName,
-					"migration missing from compiled assets",
-				),
+				fmt.Sprintf("%s %s", upMigrationName, "migration missing"),
 			)
 		}
 
-		downMigrationQuery, err := readFile(queryPaths[downMigrationName])
+		downMigrationQuery, err := readFile(migFS, queryPaths[downMigrationName])
 		if err != nil {
 			return res, errors.NewSQLLoadErr(
-				fmt.Sprintf(
-					"%s %s",
-					downMigrationName,
-					"migration missing from compiled assets",
-				),
+				fmt.Sprintf("%s %s", downMigrationName, "migration missing"),
 			)
 		}
 
@@ -208,8 +198,8 @@ func load(dirPath string) ([]migrationQuery, error) {
 	return res, nil
 }
 
-func readFile(path string) (string, error) {
-	file, err := pkger.Open(path)
+func readFile(migFS fs.FS, path string) (string, error) {
+	file, err := migFS.Open(path)
 	if err != nil {
 		return "", err
 	}

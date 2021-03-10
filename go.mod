@@ -1,9 +1,8 @@
 module github.com/jacobmoe/pgmig
 
-go 1.14
+go 1.16
 
 require (
-	github.com/go-pg/migrations/v7 v7.1.9
-	github.com/go-pg/pg/v9 v9.0.0-beta.14
-	github.com/markbates/pkger v0.15.1
+	github.com/go-pg/migrations/v8 v8.0.2
+	github.com/go-pg/pg/v10 v10.8.0
 )
