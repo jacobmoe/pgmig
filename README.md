@@ -30,7 +30,7 @@ func main() {
 		Database: "dbname",
 	})
 
-	// path to migrations dir is from project root
+	// initialize new migrator
 	mig := pgmig.New(db, migrationsFS)
 
 	// initialize the migrations table in your db
