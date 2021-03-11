@@ -23,6 +23,12 @@ import (
 var migrationsFS embed.FS
 
 func main() {
+	// create new up and down migration files:
+	//  - path/to/migrations/dir/200405153854_create_users.up.sql
+	//  - path/to/migrations/dir/200405153854_create_users.down.sql
+	err = pgmig.Create("/full/path/to/migrations/dir", "create_users")
+	check(err)
+
 	db := pg.Connect(&pg.Options{
 		Addr:     "localhost:5432",
 		User:     "dbuser",
@@ -36,12 +42,6 @@ func main() {
 	// initialize the migrations table in your db
 	// only need to be run this once for a database
 	err := mig.Init()
-	check(err)
-
-	// create new up and down migration files:
-	//  - /path/to/migrations/dir/200405153854_create_users.up.sql
-	//  - /path/to/migrations/dir/200405153854_create_users.down.sql
-	err = mig.Create("/full/path/to/migrations/dir", "create_users")
 	check(err)
 
 	// run new migrations (after updating the migration files)

@@ -5,6 +5,11 @@ import (
 	"io/fs"
 )
 
+// Create accepts a name and creates up and down migration files.
+func Create(migDirPath, name string) error {
+	return create(migDirPath, name)
+}
+
 // Migrator generates and runs migrations
 type Migrator struct {
 	db    *pg.DB
@@ -15,11 +20,6 @@ type Migrator struct {
 // migrations FS
 func New(db *pg.DB, migFS fs.FS) Migrator {
 	return Migrator{db: db, migFS: migFS}
-}
-
-// Create accepts a name and creates up and down migration files.
-func (m Migrator) Create(migDirPath, name string) error {
-	return create(migDirPath, name)
 }
 
 // Run accepts a command and runs the migrations Collection,
